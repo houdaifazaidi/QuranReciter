@@ -190,7 +190,8 @@ const APP = {
                         name_english: (ch.translated_name && ch.translated_name.name) || ch.name_simple || ch.name || '',
                         name_arabic: ch.name_arabic || ch.name || '',
                         verses_count: ch.verses_count || ch.verses || 0,
-                        audioUrl: `https://cdn.islamic.network/quran/audio-surah/${ch.id || ch.chapter_number || ch.number}/ar.alafasy.mp3`,
+                        audioUrl: `/audio/surah/${ch.id || ch.chapter_number || ch.number}`,
+                        remoteAudioUrl: `https://cdn.islamic.network/quran/audio-surah/${String(ch.id || ch.chapter_number || ch.number).padStart(3,'0')}/ar.alafasy.mp3`,
                     }));
                     console.log('Loaded sourates from api.quran.com');
                 } else {
@@ -212,7 +213,8 @@ const APP = {
                             name_english: surah.englishName || surah.englishNameTranslation || surah.name || '',
                             name_arabic: surah.name || '',
                             verses_count: surah.numberOfAyahs || surah.ayahs || 0,
-                            audioUrl: `https://cdn.islamic.network/quran/audio-surah/${surah.number}/ar.alafasy.mp3`,
+                            audioUrl: `/audio/surah/${surah.number}`,
+                            remoteAudioUrl: `https://cdn.islamic.network/quran/audio-surah/${String(surah.number).padStart(3,'0')}/ar.alafasy.mp3`,
                         }));
                         console.log('Loaded sourates from api.alquran.cloud');
                     } else {
@@ -397,7 +399,7 @@ const APP = {
             return nameMatch;
         });
 
-        
+
         this.state.currentPage = 1;
         this.displaySourates();
     },
@@ -593,26 +595,42 @@ const APP = {
             const timer = setTimeout(onTimeout, timeoutMs);
         });
 
-        // Check if this surah has an audioUrl property (from hardcoded data)
-        if (surah.audioUrl) {
+        const padded = String(surah.number).padStart(3,'0');
+
+        // Candidate audio sources (ordered): local hardcoded path, server proxy, remote CDN, mirrors
+        const candidates = [];
+
+        if (surah.audioUrl) candidates.push(surah.audioUrl);
+        // Prefer server-side proxy endpoint (works when running server.js)
+        candidates.push(`/audio/surah/${surah.number}`);
+        if (surah.remoteAudioUrl) candidates.push(surah.remoteAudioUrl);
+
+        // Additional public mirrors (may be blocked by CORS if accessed from browser)
+        candidates.push(`https://everyayah.com/quran/${padded}.mp3`);
+        candidates.push(`https://data.alquran.cloud/files/audio/alafasy/${padded}.mp3`);
+        candidates.push(`https://www.mp3quran.net/api/v3/files/get_file?file_id=${padded}_jbreen_128`);
+
+        // Try candidates sequentially until one works
+        for (const url of candidates) {
             try {
-                console.log(`🎵 Loading audio for Surah ${surah.number} from built-in source...`);
-                await tryLoadUrl(surah.audioUrl, 15000);
-                console.log(`✅ Audio loaded successfully!`);
+                console.log(`Trying audio source: ${url}`);
+                await tryLoadUrl(url, 15000);
+                console.log(`✅ Audio loaded from: ${url}`);
                 this.elements.audioPlayer.play().catch(() => {});
-                this.state.currentAudioUrl = surah.audioUrl;
+                this.state.currentAudioUrl = url;
                 return;
             } catch (err) {
-                console.log(`Built-in source unavailable: ${err.message}`);
+                console.warn(`Source failed: ${url} — ${err.message}`);
+                // continue to next source
             }
         }
 
-        // Show helpful message
-        console.warn(`⚠️ No audio available for Surah ${surah.number} in offline mode`);
-        console.warn('This app is designed to work with locally-stored audio files.');
-        console.warn('To add audio: assign audioUrl property to each surah in the hardcoded list.');
+        // If none of the candidates worked, show helpful guidance
+        console.warn(`⚠️ No audio available for Surah ${surah.number} after trying multiple sources`);
+        console.warn('If you are running locally, start the proxy server: `node server.js`');
+        console.warn('Alternatively, add working audio URLs to the hardcoded surah list or configure a server-side proxy for production.');
 
-        throw new Error(`Audio not available for Surah ${surah.number}. This is an offline-first app that requires audio URLs to be configured in the surah data.`);
+        throw new Error(`Audio not available for Surah ${surah.number}. Tried ${candidates.length} sources.`);
     },
 
     playPreviousSurah() {
