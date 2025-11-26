@@ -21,6 +21,7 @@ const APP = {
         searchQuery: '',
         selectedReciter: 1,
         availableReciters: [],
+        audioEditions: [],  // Add: store audio editions from alquran.cloud
         favorites: [],
         currentSurah: null,
         currentAudioUrl: null,
@@ -66,11 +67,41 @@ const APP = {
         console.log('Initializing Quran Audio Player...');
         this.setupEventListeners();
         this.loadFavorites();
+        await this.fetchAudioEditions();  // Fetch available recitations with audio URLs
         await this.fetchSourates();
         await this.fetchReciters();
     },
 
     setupEventListeners() {
+        // Show deployment warning if on GitHub Pages
+        const isGitHubPages = window.location.hostname.includes('github.io');
+        if (isGitHubPages) {
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 12px 20px;
+                text-align: center;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 10000;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            `;
+            banner.innerHTML = `
+                📍 <strong>Running on GitHub Pages:</strong> Audio playback requires a backend proxy. 
+                <a href="https://github.com/houdaifazaidi/QuranReciter#audio-setup" style="color: white; text-decoration: underline; font-weight: bold;">Setup Guide</a>
+            `;
+            document.body.insertBefore(banner, document.body.firstChild);
+            
+            // Adjust main content to account for banner
+            const main = document.querySelector('main');
+            if (main) main.style.marginTop = '50px';
+        }
+
         // Search and filter
         this.elements.searchInput.addEventListener('input', (e) => {
             this.state.searchQuery = e.target.value.toLowerCase();
@@ -167,6 +198,31 @@ const APP = {
         });
     },
 
+    // ========== AUDIO EDITIONS ==========
+    async fetchAudioEditions() {
+        try {
+            const response = await fetch('https://api.alquran.cloud/v1/edition?language=ar&format=audio');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+
+            if (data && data.code === 200 && Array.isArray(data.data)) {
+                // Store audio editions for use when playing
+                this.state.audioEditions = data.data.filter(ed => ed.format === 'audio');
+                console.log(`Loaded ${this.state.audioEditions.length} audio editions from alquran.cloud`);
+                
+                // Use the first (most popular) recitation
+                if (this.state.audioEditions.length > 0) {
+                    this.state.selectedRecitationEdition = this.state.audioEditions[0].identifier;
+                    console.log(`Selected recitation: ${this.state.selectedRecitationEdition}`);
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to fetch audio editions:', err.message);
+            // Fall back to known working edition
+            this.state.selectedRecitationEdition = 'ar.abdulbasitmurattal';
+        }
+    },
+
     // ========== API CALLS ==========
     async fetchSourates() {
         try {
@@ -191,6 +247,8 @@ const APP = {
                         name_arabic: ch.name_arabic || ch.name || '',
                         verses_count: ch.verses_count || ch.verses || 0,
                         audioUrl: `/audio/surah/${ch.id || ch.chapter_number || ch.number}`,
+                        // Add direct alquran.cloud audio URL (works on GitHub Pages without CORS issues)
+                        alquranCloudAudioUrl: `https://api.alquran.cloud/v1/surah/${ch.id || ch.chapter_number || ch.number}/${this.state.selectedRecitationEdition || 'ar.abdulbasitmurattal'}`,
                         remoteAudioUrl: `https://cdn.islamic.network/quran/audio-surah/${String(ch.id || ch.chapter_number || ch.number).padStart(3,'0')}/ar.alafasy.mp3`,
                     }));
                     console.log('Loaded sourates from api.quran.com');
@@ -214,6 +272,8 @@ const APP = {
                             name_arabic: surah.name || '',
                             verses_count: surah.numberOfAyahs || surah.ayahs || 0,
                             audioUrl: `/audio/surah/${surah.number}`,
+                            // Add direct alquran.cloud audio URL (works on GitHub Pages without CORS issues)
+                            alquranCloudAudioUrl: `https://api.alquran.cloud/v1/surah/${surah.number}/${this.state.selectedRecitationEdition || 'ar.abdulbasitmurattal'}`,
                             remoteAudioUrl: `https://cdn.islamic.network/quran/audio-surah/${String(surah.number).padStart(3,'0')}/ar.alafasy.mp3`,
                         }));
                         console.log('Loaded sourates from api.alquran.cloud');
@@ -596,41 +656,89 @@ const APP = {
         });
 
         const padded = String(surah.number).padStart(3,'0');
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isGitHubPages = window.location.hostname.includes('github.io');
 
-        // Candidate audio sources (ordered): local hardcoded path, server proxy, remote CDN, mirrors
+        // Candidate audio sources (ordered for best compatibility)
         const candidates = [];
 
         if (surah.audioUrl) candidates.push(surah.audioUrl);
-        // Prefer server-side proxy endpoint (works when running server.js)
-        candidates.push(`/audio/surah/${surah.number}`);
+        
+        // Try to fetch audio from alquran.cloud API (provides CORS-free audio URLs)
+        if (surah.alquranCloudAudioUrl) {
+            candidates.push({
+                name: 'alquran.cloud API',
+                url: surah.alquranCloudAudioUrl,
+                isApi: true  // Signal to fetch and extract audio URL
+            });
+        }
+        
+        // Prefer server-side proxy endpoint (works when running server.js locally)
+        if (isLocalhost) {
+            candidates.push(`/audio/surah/${surah.number}`);
+        }
+        
         if (surah.remoteAudioUrl) candidates.push(surah.remoteAudioUrl);
 
-        // Additional public mirrors (may be blocked by CORS if accessed from browser)
+        // Additional public mirrors (may be blocked by CORS if accessed from browser on GitHub Pages)
         candidates.push(`https://everyayah.com/quran/${padded}.mp3`);
         candidates.push(`https://data.alquran.cloud/files/audio/alafasy/${padded}.mp3`);
         candidates.push(`https://www.mp3quran.net/api/v3/files/get_file?file_id=${padded}_jbreen_128`);
 
         // Try candidates sequentially until one works
-        for (const url of candidates) {
+        for (const candidate of candidates) {
             try {
-                console.log(`Trying audio source: ${url}`);
+                let url = typeof candidate === 'string' ? candidate : candidate.url;
+                const isApi = candidate.isApi;
+                
+                console.log(`Trying audio source: ${typeof candidate === 'string' ? candidate : candidate.name}`);
+                
+                // If it's an API endpoint, fetch it and extract the audio URL
+                if (isApi) {
+                    try {
+                        const apiResp = await fetch(url);
+                        if (!apiResp.ok) throw new Error(`API returned ${apiResp.status}`);
+                        const apiData = await apiResp.json();
+                        
+                        // Extract audio URL from first ayah
+                        if (apiData && apiData.data && apiData.data.ayahs && apiData.data.ayahs[0]) {
+                            url = apiData.data.ayahs[0].audio;
+                            console.log(`Extracted audio URL from API: ${url}`);
+                        } else {
+                            throw new Error('No audio data in API response');
+                        }
+                    } catch (apiErr) {
+                        console.warn(`API extraction failed: ${apiErr.message}`);
+                        continue;  // Try next candidate
+                    }
+                }
+                
                 await tryLoadUrl(url, 15000);
                 console.log(`✅ Audio loaded from: ${url}`);
                 this.elements.audioPlayer.play().catch(() => {});
                 this.state.currentAudioUrl = url;
                 return;
             } catch (err) {
-                console.warn(`Source failed: ${url} — ${err.message}`);
+                console.warn(`Source failed: ${typeof candidate === 'string' ? candidate : candidate.name} — ${err.message}`);
                 // continue to next source
             }
         }
 
         // If none of the candidates worked, show helpful guidance
         console.warn(`⚠️ No audio available for Surah ${surah.number} after trying multiple sources`);
-        console.warn('If you are running locally, start the proxy server: `node server.js`');
-        console.warn('Alternatively, add working audio URLs to the hardcoded surah list or configure a server-side proxy for production.');
+        
+        if (isGitHubPages) {
+            console.warn('📌 Running on GitHub Pages: Using alquran.cloud API to fetch CORS-free audio.');
+            console.warn('💡 If audio still fails, ensure your browser allows mixed content or try a different recitation.');
+        } else if (isLocalhost) {
+            console.warn('💡 Make sure the proxy server is running: `node server.js`');
+        }
 
-        throw new Error(`Audio not available for Surah ${surah.number}. Tried ${candidates.length} sources.`);
+        throw new Error(
+            isGitHubPages 
+                ? `Audio unavailable. Tried alquran.cloud API and fallback sources. See console for details.`
+                : `Audio not available for Surah ${surah.number}. Tried ${candidates.length} sources.`
+        );
     },
 
     playPreviousSurah() {
