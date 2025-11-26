@@ -643,6 +643,33 @@ const APP = {
                     text: a.text,
                     audio: a.audio || (a.audioSecondary && a.audioSecondary[0]) || null
                 }));
+                
+                // Add Basmala (بسم الله الرحمن الرحيم) from Surah 1:1 to all surahs except Surah 9 (At-Tawbah)
+                if (surah.number !== 9) {
+                    try {
+                        const basmalaUrl = `https://api.alquran.cloud/v1/surah/1/${edition}`;
+                        const basmalaResp = await fetch(basmalaUrl);
+                        if (basmalaResp.ok) {
+                            const basmalaData = await basmalaResp.json();
+                            if (basmalaData && basmalaData.data && basmalaData.data.ayahs && basmalaData.data.ayahs[0]) {
+                                const basmala = basmalaData.data.ayahs[0];
+                                const basmalaVerse = {
+                                    numberInSurah: 0,
+                                    text: basmala.text,
+                                    audio: basmala.audio || (basmala.audioSecondary && basmala.audioSecondary[0]) || null,
+                                    isBasmala: true
+                                };
+                                // Prepend Basmala to the beginning
+                                surah.ayahs.unshift(basmalaVerse);
+                                console.log(`Added Basmala to Surah ${surah.number}`);
+                            }
+                        }
+                    } catch (basmalaErr) {
+                        console.warn(`Failed to fetch Basmala for Surah ${surah.number}:`, basmalaErr.message);
+                        // Continue without Basmala if fetch fails
+                    }
+                }
+                
                 // Reset verse state
                 this.state.currentVerseIndex = 0;
                 this.state.isPlayingFullSurah = false;
@@ -667,7 +694,10 @@ const APP = {
             li.style.padding = '8px';
             li.style.borderBottom = '1px solid #eee';
             li.style.cursor = 'pointer';
-            li.innerHTML = `<div style="font-size:0.95rem; color:#333;">${a.text}</div><div style="font-size:0.8rem; color:#777; margin-top:6px;">Verse ${a.numberInSurah}</div>`;
+            
+            // Display label: "Basmala" for Basmala verse, "Verse N" for others
+            const verseLabel = a.isBasmala ? 'Basmala' : `Verse ${a.numberInSurah}`;
+            li.innerHTML = `<div style="font-size:0.95rem; color:#333;">${a.text}</div><div style="font-size:0.8rem; color:#777; margin-top:6px;">${verseLabel}</div>`;
             li.addEventListener('click', () => this.playVerse(idx));
             list.appendChild(li);
         });
