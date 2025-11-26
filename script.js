@@ -22,6 +22,9 @@ const APP = {
         selectedReciter: 1,
         availableReciters: [],
         audioEditions: [],  // Add: store audio editions from alquran.cloud
+    selectedRecitationEdition: null,
+    currentVerseIndex: 0,
+    isPlayingFullSurah: false,
         favorites: [],
         currentSurah: null,
         currentAudioUrl: null,
@@ -49,6 +52,13 @@ const APP = {
         modalTitle: document.getElementById('modalTitle'),
         modalReciter: document.getElementById('modalReciter'),
         audioPlayer: document.getElementById('audioPlayer'),
+    // Verse-by-verse elements
+    versesContainer: document.getElementById('versesContainer'),
+    versesList: document.getElementById('versesList'),
+    prevVerse: document.getElementById('prevVerse'),
+    nextVerse: document.getElementById('nextVerse'),
+    playCurrentVerse: document.getElementById('playCurrentVerse'),
+    playFullSurah: document.getElementById('playFullSurah'),
         infoNumber: document.getElementById('infoNumber'),
         infoArabicName: document.getElementById('infoArabicName'),
         infoEnglishName: document.getElementById('infoEnglishName'),
@@ -596,8 +606,11 @@ const APP = {
         
         // Load real audio files with multiple fallback sources
         try {
-            await this.loadRealAudio(surah);
-            console.log('Real audio loaded and ready to play');
+            // Fetch ayahs (verse-by-verse) including audio URLs from alquran.cloud
+            await this.fetchSurahAyahs(surah);
+            console.log('Fetched ayahs for verse-by-verse playback');
+            // Prepare audio but do not auto-play; user can choose Play Verse or Play Full Surah
+            this.setupVerseControls();
         } catch (error) {
             console.error('Error loading audio:', error);
             this.elements.errorMessage.style.display = 'block';
@@ -606,6 +619,127 @@ const APP = {
                 Could not find audio for this Surah. Please try another.<br>
                 <small>Error: ${error.message}</small>
             `;
+        }
+    },
+
+    // Fetch ayahs (with audio URLs) from alquran.cloud for the selected recitation edition
+    async fetchSurahAyahs(surah) {
+        try {
+            const edition = this.state.selectedRecitationEdition || 'ar.abdulbasitmurattal';
+            const url = `https://api.alquran.cloud/v1/surah/${surah.number}/${edition}`;
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`alquran.cloud HTTP ${resp.status}`);
+            const data = await resp.json();
+
+            if (data && data.data && Array.isArray(data.data.ayahs)) {
+                // Map ayahs to {index, text, audio}
+                surah.ayahs = data.data.ayahs.map(a => ({
+                    numberInSurah: a.numberInSurah,
+                    text: a.text,
+                    audio: a.audio || (a.audioSecondary && a.audioSecondary[0]) || null
+                }));
+                // Reset verse state
+                this.state.currentVerseIndex = 0;
+                this.state.isPlayingFullSurah = false;
+                this.renderVersesList(surah.ayahs);
+            } else {
+                throw new Error('No ayahs in API response');
+            }
+        } catch (err) {
+            console.warn('Failed to fetch ayahs from alquran.cloud:', err.message);
+            // Fallback: if surah has no ayahs, try to use hardcoded or throw
+            surah.ayahs = [];
+            throw err;
+        }
+    },
+
+    renderVersesList(ayahs) {
+        const list = this.elements.versesList;
+        list.innerHTML = '';
+        ayahs.forEach((a, idx) => {
+            const li = document.createElement('li');
+            li.dataset.index = idx;
+            li.style.padding = '8px';
+            li.style.borderBottom = '1px solid #eee';
+            li.style.cursor = 'pointer';
+            li.innerHTML = `<div style="font-size:0.95rem; color:#333;">${a.text}</div><div style="font-size:0.8rem; color:#777; margin-top:6px;">Verse ${a.numberInSurah}</div>`;
+            li.addEventListener('click', () => this.playVerse(idx));
+            list.appendChild(li);
+        });
+        this.highlightCurrentVerse();
+    },
+
+    highlightCurrentVerse() {
+        const items = this.elements.versesList.querySelectorAll('li');
+        items.forEach(li => li.style.background = '');
+        const cur = items[this.state.currentVerseIndex];
+        if (cur) cur.style.background = 'linear-gradient(90deg,#f0f8ff,#ffffff)';
+        // Scroll into view
+        if (cur && this.elements.versesContainer) {
+            const container = this.elements.versesContainer;
+            const rect = cur.getBoundingClientRect();
+            const crect = container.getBoundingClientRect();
+            if (rect.top < crect.top || rect.bottom > crect.bottom) cur.scrollIntoView({behavior:'smooth', block:'center'});
+        }
+    },
+
+    setupVerseControls() {
+        // Wire up buttons
+        this.elements.playCurrentVerse.onclick = () => this.playVerse(this.state.currentVerseIndex);
+        this.elements.playFullSurah.onclick = () => {
+            this.state.isPlayingFullSurah = true;
+            this.playVerse(0);
+        };
+        this.elements.prevVerse.onclick = () => this.playPrevVerse();
+        this.elements.nextVerse.onclick = () => this.playNextVerse();
+
+        // Ensure audio ended event advances when full-surah mode is on
+        const audio = this.elements.audioPlayer;
+        audio.onended = () => {
+            if (this.state.isPlayingFullSurah) {
+                if (this.state.currentVerseIndex < (this.state.currentSurah.ayahs.length - 1)) {
+                    this.playVerse(this.state.currentVerseIndex + 1);
+                } else {
+                    // reached end
+                    this.state.isPlayingFullSurah = false;
+                }
+            }
+        };
+    },
+
+    playVerse(idx) {
+        const surah = this.state.currentSurah;
+        if (!surah || !Array.isArray(surah.ayahs) || !surah.ayahs[idx]) {
+            console.warn('Verse not available:', idx);
+            return;
+        }
+        const verse = surah.ayahs[idx];
+        if (!verse.audio) {
+            console.warn('No audio URL for verse', idx);
+            this.elements.errorMessage.style.display = 'block';
+            this.elements.errorText.textContent = 'Audio not available for this verse.';
+            return;
+        }
+
+        this.state.currentVerseIndex = idx;
+        this.highlightCurrentVerse();
+        const audio = this.elements.audioPlayer;
+        audio.src = verse.audio;
+        audio.load();
+        audio.play().catch(err => console.warn('Play rejected:', err));
+    },
+
+    playNextVerse() {
+        const next = this.state.currentVerseIndex + 1;
+        if (this.state.currentSurah && next < this.state.currentSurah.ayahs.length) {
+            this.playVerse(next);
+        }
+    },
+
+    playPrevVerse() {
+        const prev = this.state.currentVerseIndex - 1;
+        if (this.state.currentSurah && prev >= 0) {
+            this.playVerse(prev);
         }
     },
 
@@ -761,6 +895,8 @@ const APP = {
     closePlayerModal() {
         this.elements.playerModal.style.display = 'none';
         this.elements.audioPlayer.pause();
+        // stop full-surah playback
+        this.state.isPlayingFullSurah = false;
     },
 
     // ========== FAVORITES MANAGEMENT ==========
