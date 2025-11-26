@@ -230,18 +230,22 @@ const APP = {
         // Set the first edition as default
         this.elements.reciterSelect.value = this.state.selectedRecitationEdition;
         
-        // Add change listener to update selected edition
-        this.elements.reciterSelect.addEventListener('change', (e) => {
+        // Add change listener to update selected edition (only add once)
+        this.elements.reciterSelect.removeEventListener('change', this.onReciterChange);
+        this.onReciterChange = async (e) => {
             const newEdition = e.target.value;
             if (newEdition) {
                 this.state.selectedRecitationEdition = newEdition;
                 console.log(`Switched recitation to: ${newEdition}`);
                 // If a surah is currently open, refetch its ayahs with the new edition
-                if (this.state.currentSurah && this.state.currentSurah.ayahs) {
-                    this.fetchSurahAyahs(this.state.currentSurah);
+                if (this.state.currentSurah) {
+                    console.log(`Refetching ayahs for Surah ${this.state.currentSurah.number} with edition ${newEdition}`);
+                    await this.fetchSurahAyahs(this.state.currentSurah);
+                    console.log(`Ayahs refetched. First verse audio: ${this.state.currentSurah.ayahs[0]?.audio}`);
                 }
             }
-        });
+        };
+        this.elements.reciterSelect.addEventListener('change', this.onReciterChange);
     },
 
     // ========== API CALLS ==========
