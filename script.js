@@ -92,11 +92,8 @@ const APP = {
             this.filterAndDisplay();
         });
 
-        this.elements.reciterSelect.addEventListener('change', (e) => {
-            this.state.selectedReciter = parseInt(e.target.value) || 1;
-            this.state.currentPage = 1;
-            this.filterAndDisplay();
-        });
+        // Note: reciterSelect change listener is now added in populateReciterSelectFromEditions()
+        // to handle switching between audio editions from alquran.cloud
 
         this.elements.resetBtn.addEventListener('click', () => {
             this.resetFilters();
@@ -197,13 +194,54 @@ const APP = {
                 if (this.state.audioEditions.length > 0) {
                     this.state.selectedRecitationEdition = this.state.audioEditions[0].identifier;
                     console.log(`Selected recitation: ${this.state.selectedRecitationEdition}`);
+                    
+                    // Populate reciter/edition dropdown with audio editions
+                    this.populateReciterSelectFromEditions();
                 }
             }
         } catch (err) {
             console.warn('Failed to fetch audio editions:', err.message);
             // Fall back to known working edition
             this.state.selectedRecitationEdition = 'ar.abdulbasitmurattal';
+            this.populateReciterSelectFromEditions();
         }
+    },
+
+    populateReciterSelectFromEditions() {
+        const editions = this.state.audioEditions;
+        
+        // If there's only one edition, hide the reciter filter
+        if (editions.length <= 1) {
+            const reciterFilterDiv = document.querySelector('.reciter-filter');
+            if (reciterFilterDiv) {
+                reciterFilterDiv.style.display = 'none';
+            }
+            console.log('Only one audio edition available; reciter selector hidden.');
+            return;
+        }
+        
+        // If multiple editions, populate the dropdown
+        const options = editions.map(ed => 
+            `<option value="${ed.identifier}">${ed.englishName || ed.name || ed.identifier}</option>`
+        ).join('');
+
+        this.elements.reciterSelect.innerHTML = '<option value="">-- Select Reciter --</option>' + options;
+        
+        // Set the first edition as default
+        this.elements.reciterSelect.value = this.state.selectedRecitationEdition;
+        
+        // Add change listener to update selected edition
+        this.elements.reciterSelect.addEventListener('change', (e) => {
+            const newEdition = e.target.value;
+            if (newEdition) {
+                this.state.selectedRecitationEdition = newEdition;
+                console.log(`Switched recitation to: ${newEdition}`);
+                // If a surah is currently open, refetch its ayahs with the new edition
+                if (this.state.currentSurah && this.state.currentSurah.ayahs) {
+                    this.fetchSurahAyahs(this.state.currentSurah);
+                }
+            }
+        });
     },
 
     // ========== API CALLS ==========
@@ -414,20 +452,13 @@ const APP = {
     },
 
     async fetchReciters() {
-        // Use default reciters
-        this.state.availableReciters = [
-            { id: 1, reciter_name: 'Mishari Alafasy' },
-            { id: 2, reciter_name: 'Abdulrahman Al-Sudais' },
-            { id: 3, reciter_name: 'Nasser Al-Qatami' },
-            { id: 4, reciter_name: 'Fares Abbad' },
-            { id: 5, reciter_name: 'Mohammed Al-Tablawi' },
-            { id: 6, reciter_name: 'Khalid Al-Jalil' },
-            { id: 7, reciter_name: 'Maher Al-Muaiqly' },
-            { id: 8, reciter_name: 'Youssef Khanfar' },
-        ];
+        // Reciters are now populated from alquran.cloud audio editions in fetchAudioEditions()
+        this.state.availableReciters = this.state.audioEditions.map(ed => ({
+            id: ed.identifier,
+            reciter_name: ed.englishName || ed.name || ed.identifier
+        }));
         
-        this.populateReciterSelect();
-        this.elements.totalReciters.textContent = this.state.availableReciters.length;
+        this.elements.totalReciters.textContent = this.state.audioEditions.length;
     },
 
     // ========== DATA FILTERING & DISPLAY ==========
@@ -547,12 +578,9 @@ const APP = {
         this.elements.paginationContainer.style.display = 'flex';
     },
 
+    // Reciter selection is now handled by populateReciterSelectFromEditions()
     populateReciterSelect() {
-        const options = this.state.availableReciters.map(reciter => 
-            `<option value="${reciter.id}">${reciter.reciter_name}</option>`
-        ).join('');
-
-        this.elements.reciterSelect.innerHTML = '<option value="">All Reciters</option>' + options;
+        // Kept for backward compatibility, but functionality moved to populateReciterSelectFromEditions
     },
 
     // ========== PLAYER FUNCTIONALITY ==========
