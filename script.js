@@ -644,7 +644,10 @@ const APP = {
                 clearTimeout(timer);
             };
 
-            try { audio.crossOrigin = 'anonymous'; } catch (e) { /* ignore */ }
+            // Do not set crossOrigin: many public audio CDNs do not send CORS headers.
+            // Setting crossOrigin can cause the browser to require CORS headers and
+            // block playback if they are missing. Leave it unset to maximize
+            // compatibility with public audio hosts.
 
             audio.src = url;
             audio.load();
