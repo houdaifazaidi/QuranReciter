@@ -7,8 +7,8 @@ const APP = {
     config: {
         itemsPerPage: 12,
         apiBaseUrls: [
-            'https://api.alquran.cloud/v1',
             'https://api.quran.com/api/v4',
+            'https://api.alquran.cloud/v1',
         ],
         reciterId: 1, // Default reciter (Mishari Alafasy)
     },
@@ -173,42 +173,72 @@ const APP = {
             this.showLoading(true);
             this.showError(false);
 
-            // Try AlQuran.cloud API first (most reliable)
-            let data = null;
+            // Prefer api.quran.com (v4). If it fails, fall back to api.alquran.cloud, then to hardcoded data.
+            this.state.allSourates = [];
+
+            // 1) Try api.quran.com
             try {
-                const response = await fetch('https://api.alquran.cloud/v1/surah');
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                data = await response.json();
-                
-                if (data.code === 200 && data.data) {
-                    this.state.allSourates = data.data.map(surah => ({
-                        number: surah.number,
-                        name: surah.englishName,
-                        name_english: surah.englishName,
-                        name_arabic: surah.name,
-                        verses_count: surah.numberOfAyahs,
-                        audioUrl: `https://cdn.islamic.network/quran/audio-surah/${surah.number}/ar.alafasy.mp3`,
+                const resp = await fetch('https://api.quran.com/api/v4/chapters');
+                if (!resp.ok) throw new Error(`quran.com HTTP ${resp.status}`);
+                const json = await resp.json();
+
+                // Expected shape: { chapters: [ { id, name_simple, name_arabic, verses_count, translated_name } ] }
+                if (json && Array.isArray(json.chapters) && json.chapters.length > 0) {
+                    this.state.allSourates = json.chapters.map(ch => ({
+                        number: ch.id || ch.chapter_number || ch.number,
+                        name: ch.name_simple || (ch.translated_name && ch.translated_name.name) || ch.name || ch.name_arabic,
+                        name_english: (ch.translated_name && ch.translated_name.name) || ch.name_simple || ch.name || '',
+                        name_arabic: ch.name_arabic || ch.name || '',
+                        verses_count: ch.verses_count || ch.verses || 0,
+                        audioUrl: `https://cdn.islamic.network/quran/audio-surah/${ch.id || ch.chapter_number || ch.number}/ar.alafasy.mp3`,
                     }));
+                    console.log('Loaded sourates from api.quran.com');
+                } else {
+                    throw new Error('Unexpected api.quran.com response shape');
                 }
-            } catch (err) {
-                console.log('AlQuran.cloud API failed, trying fallback...');
-                // Fallback to local hardcoded data if API fails
-                this.state.allSourates = this.getHardcodedSourates();
+            } catch (errQuranCom) {
+                console.warn('api.quran.com failed:', errQuranCom.message);
+
+                // 2) Fallback to api.alquran.cloud
+                try {
+                    const response = await fetch('https://api.alquran.cloud/v1/surah');
+                    if (!response.ok) throw new Error(`alquran.cloud HTTP ${response.status}`);
+                    const data = await response.json();
+
+                    if (data && (data.code === 200 || data.status === 'OK') && Array.isArray(data.data)) {
+                        this.state.allSourates = data.data.map(surah => ({
+                            number: surah.number,
+                            name: surah.englishName || surah.name || '',
+                            name_english: surah.englishName || surah.englishNameTranslation || surah.name || '',
+                            name_arabic: surah.name || '',
+                            verses_count: surah.numberOfAyahs || surah.ayahs || 0,
+                            audioUrl: `https://cdn.islamic.network/quran/audio-surah/${surah.number}/ar.alafasy.mp3`,
+                        }));
+                        console.log('Loaded sourates from api.alquran.cloud');
+                    } else {
+                        throw new Error('Unexpected alquran.cloud response shape');
+                    }
+                } catch (errAlQuran) {
+                    console.warn('api.alquran.cloud failed:', errAlQuran.message);
+                    // 3) Final fallback: hardcoded list
+                    this.state.allSourates = this.getHardcodedSourates();
+                    console.log('Using hardcoded sourates as fallback');
+                }
             }
 
-            if (this.state.allSourates.length === 0) {
+            if (!this.state.allSourates || this.state.allSourates.length === 0) {
                 this.state.allSourates = this.getHardcodedSourates();
             }
 
             console.log(`Loaded ${this.state.allSourates.length} sourates`);
             this.elements.totalSourates.textContent = this.state.allSourates.length;
-            
+
             this.filterAndDisplay();
             this.showLoading(false);
             this.elements.statsContainer.style.display = 'grid';
 
         } catch (error) {
-            console.error('Error fetching sourates:', error);
+            console.error('Error fetching sourates (final):', error);
             // Fallback to hardcoded data
             this.state.allSourates = this.getHardcodedSourates();
             this.elements.totalSourates.textContent = this.state.allSourates.length;
