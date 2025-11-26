@@ -143,6 +143,20 @@
                     Next <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
+
+            <!-- Verse-by-verse controls and list -->
+            <div class="verses-section" style="margin-top:18px;">
+                <div class="verse-controls" style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;">
+                    <button id="prevVerse" class="btn btn-secondary" title="Previous verse"><i class="fas fa-backward"></i></button>
+                    <button id="playCurrentVerse" class="btn btn-primary" title="Play selected verse"><i class="fas fa-play"></i> Play Verse</button>
+                    <button id="playFullSurah" class="btn btn-success" title="Play entire surah"><i class="fas fa-play-circle"></i> Play Full Surah</button>
+                    <button id="nextVerse" class="btn btn-secondary" title="Next verse"><i class="fas fa-forward"></i></button>
+                </div>
+
+                <div id="versesContainer" class="verses-container" style="max-height:320px; overflow:auto; padding:8px; background:#fff; border-radius:8px;">
+                    <ul id="versesList" style="list-style:none; margin:0; padding:0;"></ul>
+                </div>
+            </div>
         </div>
     </div>
 
