@@ -397,6 +397,7 @@ const APP = {
             return nameMatch;
         });
 
+        
         this.state.currentPage = 1;
         this.displaySourates();
     },
