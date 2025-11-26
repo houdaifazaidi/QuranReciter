@@ -83,34 +83,7 @@ const APP = {
     },
 
     setupEventListeners() {
-        // Show deployment warning if on GitHub Pages
-        const isGitHubPages = window.location.hostname.includes('github.io');
-        if (isGitHubPages) {
-            const banner = document.createElement('div');
-            banner.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 12px 20px;
-                text-align: center;
-                font-size: 14px;
-                font-weight: 500;
-                z-index: 10000;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            `;
-            banner.innerHTML = `
-                📍 <strong>Running on GitHub Pages:</strong> Audio playback requires a backend proxy. 
-                <a href="https://github.com/houdaifazaidi/QuranReciter#audio-setup" style="color: white; text-decoration: underline; font-weight: bold;">Setup Guide</a>
-            `;
-            document.body.insertBefore(banner, document.body.firstChild);
-            
-            // Adjust main content to account for banner
-            const main = document.querySelector('main');
-            if (main) main.style.marginTop = '50px';
-        }
+        // (Removed GitHub Pages banner) — no persistent banner is shown by default.
 
         // Search and filter
         this.elements.searchInput.addEventListener('input', (e) => {
@@ -817,7 +790,7 @@ const APP = {
         
         if (surah.remoteAudioUrl) candidates.push(surah.remoteAudioUrl);
 
-        // Additional public mirrors (may be blocked by CORS if accessed from browser on GitHub Pages)
+    // Additional public mirrors (may be blocked by CORS if accessed from browser)
         candidates.push(`https://everyayah.com/quran/${padded}.mp3`);
         candidates.push(`https://data.alquran.cloud/files/audio/alafasy/${padded}.mp3`);
         candidates.push(`https://www.mp3quran.net/api/v3/files/get_file?file_id=${padded}_jbreen_128`);
@@ -864,10 +837,7 @@ const APP = {
         // If none of the candidates worked, show helpful guidance
         console.warn(`⚠️ No audio available for Surah ${surah.number} after trying multiple sources`);
         
-        if (isGitHubPages) {
-            console.warn('📌 Running on GitHub Pages: Using alquran.cloud API to fetch CORS-free audio.');
-            console.warn('💡 If audio still fails, ensure your browser allows mixed content or try a different recitation.');
-        } else if (isLocalhost) {
+        if (isLocalhost) {
             console.warn('💡 Make sure the proxy server is running: `node server.js`');
         }
 
