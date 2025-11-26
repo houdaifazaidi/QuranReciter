@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quran Audio Player</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-quran"></i>
+                <h1>Quran Audio Player</h1>
+            </div>
+            <p class="subtitle">Listen to the Holy Quran with different reciters</p>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="container">
+        <!-- Controls Section -->
+        <div class="controls-section">
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search sourates by name or number..."
+                    aria-label="Search sourates"
+                >
+            </div>
+            
+            <div class="controls-group">
+                <div class="reciter-filter">
+                    <label for="reciterSelect">Filter by Reciter:</label>
+                    <select id="reciterSelect" aria-label="Filter by reciter">
+                        <option value="">All Reciters</option>
+                    </select>
+                </div>
+                
+                <button id="resetBtn" class="btn btn-secondary" title="Reset all filters">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingSpinner" class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading Quran sourates...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorMessage" class="error-message" style="display: none;">
+            <i class="fas fa-exclamation-circle"></i>
+            <p id="errorText"></p>
+            <button id="retryBtn" class="btn btn-primary">
+                <i class="fas fa-redo"></i> Retry
+            </button>
+        </div>
+
+        <!-- Sourates List -->
+        <div id="souratesContainer" class="sourates-grid" style="display: none;"></div>
+
+        <!-- Pagination -->
+        <div id="paginationContainer" class="pagination-container" style="display: none;">
+            <button id="prevBtn" class="btn btn-pagination" aria-label="Previous page">
+                <i class="fas fa-chevron-left"></i> Previous
+            </button>
+            
+            <div class="pagination-info">
+                <span id="pageInfo">Page 1 of 1</span>
+            </div>
+            
+            <button id="nextBtn" class="btn btn-pagination" aria-label="Next page">
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <!-- Stats -->
+        <div id="statsContainer" class="stats-container" style="display: none;">
+            <div class="stat-card">
+                <i class="fas fa-book"></i>
+                <span id="totalSourates">0</span>
+                <p>Total Sourates</p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-microphone"></i>
+                <span id="totalReciters">0</span>
+                <p>Available Reciters</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Audio Player Modal -->
+    <div id="playerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <button class="close-btn" id="closeModal">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div class="modal-header">
+                <h2 id="modalTitle">Surah Title</h2>
+                <p id="modalReciter" class="reciter-name">Reciter Name</p>
+            </div>
+
+            <div class="audio-player">
+                <audio id="audioPlayer" controls style="width: 100%; background: #f5f5f5; border-radius: 8px;">
+                    Your browser does not support the audio element.
+                </audio>
+                <p style="font-size: 0.85rem; color: #999; margin-top: 10px; text-align: center;">
+                    🎵 Use the player above to play, pause, and seek through the Surah
+                </p>
+            </div>
+
+            <div class="player-info">
+                <div class="info-row">
+                    <span class="info-label">Surah Number:</span>
+                    <span id="infoNumber" class="info-value">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Arabic Name:</span>
+                    <span id="infoArabicName" class="info-value">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">English Name:</span>
+                    <span id="infoEnglishName" class="info-value">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Verses:</span>
+                    <span id="infoVerses" class="info-value">-</span>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="prevSurah" class="btn btn-secondary" title="Previous surah">
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <button id="nextSurah" class="btn btn-secondary" title="Next surah">
+                    Next <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Favorite Button (Floating) -->
+    <button id="favoritesBtn" class="floating-btn" title="View favorites">
+        <i class="fas fa-heart"></i>
+        <span id="favoriteCount" class="badge">0</span>
+    </button>
+
+    <!-- Favorites Modal -->
+    <div id="favoritesModal" class="modal" style="display: none;">
+        <div class="modal-content favorites-modal">
+            <button class="close-btn" id="closeFavoritesModal">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <h2><i class="fas fa-heart"></i> Favorite Sourates</h2>
+            
+            <div id="favoritesList" class="favorites-list"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "quran-audio-player",
+  "version": "1.0.0",
+  "description": "Quran Audio Player with local proxy server to bypass CORS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["quran", "audio", "player"],
+  "author": "",
+  "license": "MIT"
+}
