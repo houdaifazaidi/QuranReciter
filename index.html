@@ -107,31 +107,46 @@
                 <p id="modalReciter" class="reciter-name">Reciter Name</p>
             </div>
 
-            <div class="audio-player">
-                <audio id="audioPlayer" controls style="width: 100%; background: #f5f5f5; border-radius: 8px;">
-                    Your browser does not support the audio element.
-                </audio>
-                <p style="font-size: 0.85rem; color: #999; margin-top: 10px; text-align: center;">
-                    🎵 Use the player above to play, pause, and seek through the Surah
-                </p>
+            <div class="quick-play-actions">
+                <button id="playFullSurah" class="btn btn-success btn-quick" title="Play the entire surah">
+                    <i class="fas fa-play-circle"></i> Play Full Surah
+                </button>
+                <button id="playCurrentVerse" class="btn btn-primary btn-quick" title="Play the currently selected verse">
+                    <i class="fas fa-microphone"></i> Play Verse
+                </button>
             </div>
 
-            <div class="player-info">
-                <div class="info-row">
-                    <span class="info-label">Surah Number:</span>
-                    <span id="infoNumber" class="info-value">-</span>
+            <div class="player-panel">
+                <div class="player-card">
+                    <div class="player-card-head">
+                        <div>
+                            <p class="eyebrow-text">Now Playing</p>
+                            <p class="player-subtext">Control playback and explore surah details</p>
+                        </div>
+                        <i class="fas fa-wave-square"></i>
+                    </div>
+                    <audio id="audioPlayer" controls>
+                        Your browser does not support the audio element.
+                    </audio>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Arabic Name:</span>
-                    <span id="infoArabicName" class="info-value">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">English Name:</span>
-                    <span id="infoEnglishName" class="info-value">-</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Verses:</span>
-                    <span id="infoVerses" class="info-value">-</span>
+
+                <div class="player-info">
+                    <div class="info-card">
+                        <span class="info-label">Surah Number</span>
+                        <span id="infoNumber" class="info-value">-</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">Arabic Name</span>
+                        <span id="infoArabicName" class="info-value">-</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">English Name</span>
+                        <span id="infoEnglishName" class="info-value">-</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">Total Verses</span>
+                        <span id="infoVerses" class="info-value">-</span>
+                    </div>
                 </div>
             </div>
 
@@ -145,15 +160,18 @@
             </div>
 
             <!-- Verse-by-verse controls and list -->
-            <div class="verses-section" style="margin-top:18px;">
-                <div class="verse-controls" style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;">
-                    <button id="prevVerse" class="btn btn-secondary" title="Previous verse"><i class="fas fa-backward"></i></button>
-                    <button id="playCurrentVerse" class="btn btn-primary" title="Play selected verse"><i class="fas fa-play"></i> Play Verse</button>
-                    <button id="playFullSurah" class="btn btn-success" title="Play entire surah"><i class="fas fa-play-circle"></i> Play Full Surah</button>
-                    <button id="nextVerse" class="btn btn-secondary" title="Next verse"><i class="fas fa-forward"></i></button>
+            <div class="verses-section">
+                <div class="verse-navigation">
+                    <button id="prevVerse" class="btn btn-secondary" title="Previous verse">
+                        <i class="fas fa-arrow-left"></i> Previous Verse
+                    </button>
+                    <span class="verse-navigation-hint">Scroll below to pick a verse</span>
+                    <button id="nextVerse" class="btn btn-secondary" title="Next verse">
+                        Next Verse <i class="fas fa-arrow-right"></i>
+                    </button>
                 </div>
 
-                <div id="versesContainer" class="verses-container" style="max-height:320px; overflow:auto; padding:8px; background:#fff; border-radius:8px;">
+                <div id="versesContainer" class="verses-container">
                     <ul id="versesList" style="list-style:none; margin:0; padding:0;"></ul>
                 </div>
             </div>
