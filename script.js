@@ -645,7 +645,8 @@ const APP = {
                 }));
                 
                 // Add Basmala (بسم الله الرحمن الرحيم) from Surah 1:1 to all surahs except Surah 9 (At-Tawbah)
-                if (surah.number !== 9) {
+                // Only prepend Basmala for surahs that do NOT already start with it (i.e., skip Surah 1 and Surah 9)
+                if (surah.number > 1 && surah.number !== 9) {
                     try {
                         const basmalaUrl = `https://api.alquran.cloud/v1/surah/1/${edition}`;
                         const basmalaResp = await fetch(basmalaUrl);
@@ -663,32 +664,8 @@ const APP = {
                                 surah.ayahs.unshift(basmalaVerse);
                                 console.log(`Added Basmala to Surah ${surah.number}`);
 
-                                // If the original first verse contained the Basmala text (common in many editions),
-                                // remove that prefix so it won't be duplicated in the UI.
-                                if (surah.ayahs[1] && surah.ayahs[1].text) {
-                                    const originalFirst = surah.ayahs[1].text;
-                                    const basmalaText = basmala.text || '';
-                                    // If exact prefix match, remove it directly
-                                    if (basmalaText && originalFirst.startsWith(basmalaText)) {
-                                        surah.ayahs[1].text = originalFirst.slice(basmalaText.length).trim();
-                                    } else {
-                                        // Fallback: compare normalized (collapsed spaces, remove common diacritics)
-                                        const stripDiacritics = s => s.replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g, '').replace(/\s+/g, ' ').trim();
-                                        const normFirst = stripDiacritics(originalFirst);
-                                        const normBasmala = stripDiacritics(basmalaText);
-                                        if (normBasmala && normFirst.startsWith(normBasmala)) {
-                                            // Try to remove the basmalaText substring if present
-                                            const idx = originalFirst.indexOf(basmalaText);
-                                            if (idx === 0) {
-                                                surah.ayahs[1].text = originalFirst.slice(basmalaText.length).trim();
-                                            } else {
-                                                // Last resort: remove the basmala plain text (without diacritics)
-                                                const basmalaPlain = basmalaText.replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g, '');
-                                                surah.ayahs[1].text = originalFirst.replace(basmalaPlain, '').trim();
-                                            }
-                                        }
-                                    }
-                                }
+                                // We will not mutate the original verse text here; rendering will hide any duplicated
+                                // Basmala prefix to keep the original data intact and handle diacritic differences.
                             }
                         }
                     } catch (basmalaErr) {
@@ -715,16 +692,57 @@ const APP = {
     renderVersesList(ayahs) {
         const list = this.elements.versesList;
         list.innerHTML = '';
+
+        // Helper: strip common Arabic diacritics and normalize spaces for comparison
+        const normalize = (s = '') => s.replace(/[\u0610-\u061A\u064B-\u065F\u06D6-\u06ED]/g, '')
+                                    .replace(/\s+/g, ' ')
+                                    .replace(/\u0671/g, 'ا')
+                                    .trim();
+
+        // Build a set of basmala variants if present as first item
+        const hasInsertedBasmala = ayahs[0] && ayahs[0].isBasmala;
+        const basmalaText = hasInsertedBasmala ? (ayahs[0].text || '') : '';
+        const basmalaNorm = normalize(basmalaText);
+
         ayahs.forEach((a, idx) => {
             const li = document.createElement('li');
             li.dataset.index = idx;
             li.style.padding = '8px';
             li.style.borderBottom = '1px solid #eee';
             li.style.cursor = 'pointer';
-            
+
+            let displayText = a.text || '';
+
+            // If we've inserted Basmala as a separate first item, hide duplicated prefix from the original first verse
+            if (hasInsertedBasmala && !a.isBasmala && idx === 1 && basmalaNorm) {
+                const candidate = displayText;
+                const candNorm = normalize(candidate);
+                // If normalized starts with normalized basmala, attempt to remove the visible prefix
+                if (candNorm.startsWith(basmalaNorm)) {
+                    // Try direct substring remove using basmalaText if it's found at start
+                    if (candidate.startsWith(basmalaText)) {
+                        displayText = candidate.slice(basmalaText.length).trim();
+                    } else {
+                        // Fallback: remove approximate prefix by splitting words
+                        const basmalaWords = basmalaNorm.split(' ');
+                        const candWords = candNorm.split(' ');
+                        // remove as many leading words as match the basmala words
+                        let removeCount = 0;
+                        for (let i = 0; i < basmalaWords.length && i < candWords.length; i++) {
+                            if (candWords[i] === basmalaWords[i]) removeCount++; else break;
+                        }
+                        if (removeCount > 0) {
+                            // Reconstruct displayText by slicing the original candidate by words
+                            const originalWords = candidate.split(/\s+/);
+                            displayText = originalWords.slice(removeCount).join(' ').trim();
+                        }
+                    }
+                }
+            }
+
             // Display label: "Basmala" for Basmala verse, "Verse N" for others
             const verseLabel = a.isBasmala ? 'Basmala' : `Verse ${a.numberInSurah}`;
-            li.innerHTML = `<div style="font-size:0.95rem; color:#333;">${a.text}</div><div style="font-size:0.8rem; color:#777; margin-top:6px;">${verseLabel}</div>`;
+            li.innerHTML = `<div style="font-size:0.95rem; color:#333;">${displayText}</div><div style="font-size:0.8rem; color:#777; margin-top:6px;">${verseLabel}</div>`;
             li.addEventListener('click', () => this.playVerse(idx));
             list.appendChild(li);
         });
