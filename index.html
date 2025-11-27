@@ -23,26 +23,72 @@
     <main class="container">
         <!-- Controls Section -->
         <div class="controls-section">
-            <div class="search-bar">
+            <div class="controls-header">
+                <div>
+                    <p class="eyebrow-text">Smart search</p>
+                    <h2>Browse the Quran beautifully</h2>
+                    <p class="header-subtext">Combine filters, verse ranges, and favorites to instantly find what you need.</p>
+                </div>
+                <div class="search-summary" id="searchSummary">Loading surahs...</div>
+            </div>
+
+            <div class="search-bar search-bar-elevated">
                 <i class="fas fa-search"></i>
                 <input 
                     type="text" 
                     id="searchInput" 
-                    placeholder="Search sourates by name or number..."
+                    placeholder="Search by name, number, or revelation place..."
                     aria-label="Search sourates"
                 >
+                <button id="clearSearch" class="pill-button" type="button" title="Clear search">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="quick-filter-row">
+                <button class="filter-chip active" data-length-filter="all">All Surahs</button>
+                <button class="filter-chip" data-length-filter="short">Short (&lt; 40 ayat)</button>
+                <button class="filter-chip" data-length-filter="medium">Medium (40-100 ayat)</button>
+                <button class="filter-chip" data-length-filter="long">Long (&gt; 100 ayat)</button>
             </div>
             
-            <div class="controls-group">
-                <div class="reciter-filter">
+            <div class="advanced-filters">
+                <div class="control-card reciter-filter">
                     <label for="reciterSelect">Filter by Reciter:</label>
                     <select id="reciterSelect" aria-label="Filter by reciter">
                         <option value="">All Reciters</option>
                     </select>
                 </div>
-                
-                <button id="resetBtn" class="btn btn-secondary" title="Reset all filters">
-                    <i class="fas fa-redo"></i> Reset
+
+                <div class="control-card range-field">
+                    <label>Verse Count Range</label>
+                    <div class="range-inputs">
+                        <input type="number" id="minVerses" min="1" placeholder="Min" aria-label="Minimum verse count">
+                        <span>to</span>
+                        <input type="number" id="maxVerses" min="1" placeholder="Max" aria-label="Maximum verse count">
+                    </div>
+                </div>
+
+                <div class="control-card sort-field">
+                    <label for="sortSelect">Sort by</label>
+                    <select id="sortSelect" aria-label="Sort surahs">
+                        <option value="number">Surah Number</option>
+                        <option value="name">Alphabetical</option>
+                        <option value="versesAsc">Fewest Verses</option>
+                        <option value="versesDesc">Most Verses</option>
+                    </select>
+                </div>
+
+                <div class="control-card favorites-field">
+                    <label class="toggle-control" for="favoritesOnly">
+                        <input type="checkbox" id="favoritesOnly">
+                        <span>Show favorites only</span>
+                    </label>
+                    <p class="toggle-hint">Great for rehearsing your saved list.</p>
+                </div>
+
+                <button id="resetBtn" class="btn btn-secondary control-card reset-card" title="Reset all filters">
+                    <i class="fas fa-redo"></i> Reset All
                 </button>
             </div>
         </div>
