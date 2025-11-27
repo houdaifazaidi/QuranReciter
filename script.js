@@ -722,8 +722,10 @@ const APP = {
                 <div class="sourate-card">
                     <div class="sourate-header">
                         <div class="header-row">
-                            <span class="badge badge-number">Surah ${surah.number}</span>
-                            <span class="badge badge-revelation ${revelationClass}">${revelationLabel.toUpperCase()}</span>
+                            <div class="badge-stack">
+                                <span class="badge badge-revelation ${revelationClass}">${revelationLabel}</span>
+                                <span class="badge badge-number">Surah ${String(surah.number).padStart(3, '0')}</span>
+                            </div>
                         </div>
                         <h3>${surah.name}</h3>
                         <p class="sourate-arabic">${surah.name_arabic}</p>
