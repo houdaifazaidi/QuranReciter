@@ -721,13 +721,6 @@ const APP = {
             return `
                 <div class="sourate-card">
                     <div class="sourate-header">
-                        <div class="header-row">
-                            <div class="badge badge-meta">
-                                <span class="badge-meta-label">Surah ${String(surah.number).padStart(3, '0')}</span>
-                                <span class="badge-divider">•</span>
-                                <span class="badge-meta-value ${revelationClass}">${revelationLabel.toUpperCase()}</span>
-                            </div>
-                        </div>
                         <h3>${surah.name}</h3>
                         <p class="sourate-arabic">${surah.name_arabic}</p>
                     </div>
