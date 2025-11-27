@@ -662,6 +662,33 @@ const APP = {
                                 // Prepend Basmala to the beginning
                                 surah.ayahs.unshift(basmalaVerse);
                                 console.log(`Added Basmala to Surah ${surah.number}`);
+
+                                // If the original first verse contained the Basmala text (common in many editions),
+                                // remove that prefix so it won't be duplicated in the UI.
+                                if (surah.ayahs[1] && surah.ayahs[1].text) {
+                                    const originalFirst = surah.ayahs[1].text;
+                                    const basmalaText = basmala.text || '';
+                                    // If exact prefix match, remove it directly
+                                    if (basmalaText && originalFirst.startsWith(basmalaText)) {
+                                        surah.ayahs[1].text = originalFirst.slice(basmalaText.length).trim();
+                                    } else {
+                                        // Fallback: compare normalized (collapsed spaces, remove common diacritics)
+                                        const stripDiacritics = s => s.replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g, '').replace(/\s+/g, ' ').trim();
+                                        const normFirst = stripDiacritics(originalFirst);
+                                        const normBasmala = stripDiacritics(basmalaText);
+                                        if (normBasmala && normFirst.startsWith(normBasmala)) {
+                                            // Try to remove the basmalaText substring if present
+                                            const idx = originalFirst.indexOf(basmalaText);
+                                            if (idx === 0) {
+                                                surah.ayahs[1].text = originalFirst.slice(basmalaText.length).trim();
+                                            } else {
+                                                // Last resort: remove the basmala plain text (without diacritics)
+                                                const basmalaPlain = basmalaText.replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g, '');
+                                                surah.ayahs[1].text = originalFirst.replace(basmalaPlain, '').trim();
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     } catch (basmalaErr) {
