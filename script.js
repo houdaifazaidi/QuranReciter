@@ -240,6 +240,18 @@ const APP = {
                 // If a surah is currently open, refetch its ayahs with the new edition
                 if (this.state.currentSurah) {
                     console.log(`Refetching ayahs for Surah ${this.state.currentSurah.number} with edition ${newEdition}`);
+                    // Pause/reset audio before refetching so the old audio doesn't continue playing
+                    try {
+                        const audioEl = this.elements.audioPlayer;
+                        audioEl.pause();
+                        audioEl.removeAttribute('src');
+                        audioEl.load();
+                    } catch (e) {
+                        // ignore
+                    }
+                    // ensure playback state reset
+                    this.state.isPlayingFullSurah = false;
+                    this.state.currentVerseIndex = 0;
                     await this.fetchSurahAyahs(this.state.currentSurah);
                     console.log(`Ayahs refetched. First verse audio: ${this.state.currentSurah.ayahs[0]?.audio}`);
                 }
@@ -492,18 +504,6 @@ const APP = {
     },
 
     renderSourates(sourates) {
-        if (sourates.length === 0) {
-            this.elements.souratesContainer.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: white; border-radius: 12px;">
-                    <i class="fas fa-search" style="font-size: 3rem; color: #ccc; margin-bottom: 15px; display: block;"></i>
-                    <p style="color: #666; font-size: 1.1rem;">No sourates found matching your search.</p>
-                </div>
-            `;
-            this.elements.souratesContainer.style.display = 'grid';
-            this.elements.paginationContainer.style.display = 'none';
-            return;
-        }
-
         this.elements.souratesContainer.innerHTML = sourates.map(surah => {
             const isFavorite = this.state.favorites.some(fav => fav.number === surah.number);
             
