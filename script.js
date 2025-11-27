@@ -19,6 +19,12 @@ const APP = {
         displayedSourates: [],
         currentPage: 1,
         searchQuery: '',
+        searchQueryRaw: '',
+        lengthFilter: 'all',
+        minVerses: null,
+        maxVerses: null,
+        favoritesOnly: false,
+        sortMode: 'number',
         selectedReciter: 1,
         availableReciters: [],
         audioEditions: [],  // Add: store audio editions from alquran.cloud
@@ -33,8 +39,15 @@ const APP = {
     // DOM Elements
     elements: {
         searchInput: document.getElementById('searchInput'),
+        searchSummary: document.getElementById('searchSummary'),
+        clearSearch: document.getElementById('clearSearch'),
         reciterSelect: document.getElementById('reciterSelect'),
         resetBtn: document.getElementById('resetBtn'),
+        lengthFilterChips: document.querySelectorAll('[data-length-filter]'),
+        minVerses: document.getElementById('minVerses'),
+        maxVerses: document.getElementById('maxVerses'),
+        favoritesOnlyToggle: document.getElementById('favoritesOnly'),
+        sortSelect: document.getElementById('sortSelect'),
         souratesContainer: document.getElementById('souratesContainer'),
         paginationContainer: document.getElementById('paginationContainer'),
         loadingSpinner: document.getElementById('loadingSpinner'),
@@ -87,10 +100,57 @@ const APP = {
 
         // Search and filter
         this.elements.searchInput.addEventListener('input', (e) => {
-            this.state.searchQuery = e.target.value.toLowerCase();
-            this.state.currentPage = 1;
+            const value = e.target.value || '';
+            this.state.searchQueryRaw = value.trim();
+            this.state.searchQuery = this.state.searchQueryRaw.toLowerCase();
             this.filterAndDisplay();
+            this.updateClearSearchVisibility();
         });
+
+        if (this.elements.clearSearch) {
+            this.elements.clearSearch.addEventListener('click', () => {
+                this.elements.searchInput.value = '';
+                this.state.searchQuery = '';
+                this.state.searchQueryRaw = '';
+                this.filterAndDisplay();
+                this.updateClearSearchVisibility();
+            });
+        }
+
+        if (this.elements.lengthFilterChips.length) {
+            this.elements.lengthFilterChips.forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const filterKey = chip.dataset.lengthFilter || 'all';
+                    this.setLengthFilter(filterKey);
+                });
+            });
+        }
+
+        if (this.elements.minVerses) {
+            this.elements.minVerses.addEventListener('input', (e) => {
+                this.handleVerseRangeInput('minVerses', e.target.value);
+            });
+        }
+
+        if (this.elements.maxVerses) {
+            this.elements.maxVerses.addEventListener('input', (e) => {
+                this.handleVerseRangeInput('maxVerses', e.target.value);
+            });
+        }
+
+        if (this.elements.favoritesOnlyToggle) {
+            this.elements.favoritesOnlyToggle.addEventListener('change', (e) => {
+                this.state.favoritesOnly = e.target.checked;
+                this.filterAndDisplay();
+            });
+        }
+
+        if (this.elements.sortSelect) {
+            this.elements.sortSelect.addEventListener('change', (e) => {
+                this.state.sortMode = e.target.value || 'number';
+                this.filterAndDisplay();
+            });
+        }
 
         // Note: reciterSelect change listener is now added in populateReciterSelectFromEditions()
         // to handle switching between audio editions from alquran.cloud
@@ -176,6 +236,9 @@ const APP = {
                 this.closeFavoritesModal();
             }
         });
+
+        this.updateLengthFilterChips();
+        this.updateClearSearchVisibility();
     },
 
     // ========== AUDIO EDITIONS ==========
@@ -244,6 +307,14 @@ const APP = {
         });
     },
 
+    getCurrentReciterName() {
+        if (!Array.isArray(this.state.audioEditions) || this.state.audioEditions.length === 0) {
+            return 'Mishari Al-Afasy';
+        }
+        const current = this.state.audioEditions.find(ed => ed.identifier === this.state.selectedRecitationEdition);
+        return current ? (current.englishName || current.name || current.identifier) : 'Mishari Al-Afasy';
+    },
+
     // ========== API CALLS ==========
     async fetchSourates() {
         try {
@@ -261,17 +332,21 @@ const APP = {
 
                 // Expected shape: { chapters: [ { id, name_simple, name_arabic, verses_count, translated_name } ] }
                 if (json && Array.isArray(json.chapters) && json.chapters.length > 0) {
-                    this.state.allSourates = json.chapters.map(ch => ({
+                    this.state.allSourates = json.chapters.map(ch => {
+                        const revelationRaw = ch.revelation_place || ch.revelationPlace || '';
+                        return {
                         number: ch.id || ch.chapter_number || ch.number,
                         name: ch.name_simple || (ch.translated_name && ch.translated_name.name) || ch.name || ch.name_arabic,
                         name_english: (ch.translated_name && ch.translated_name.name) || ch.name_simple || ch.name || '',
                         name_arabic: ch.name_arabic || ch.name || '',
                         verses_count: ch.verses_count || ch.verses || 0,
+                        revelation_place: revelationRaw ? revelationRaw.toLowerCase() : 'unknown',
                         audioUrl: `/audio/surah/${ch.id || ch.chapter_number || ch.number}`,
                         // Add direct alquran.cloud audio URL (works on GitHub Pages without CORS issues)
                         alquranCloudAudioUrl: `https://api.alquran.cloud/v1/surah/${ch.id || ch.chapter_number || ch.number}/${this.state.selectedRecitationEdition || 'ar.abdulbasitmurattal'}`,
                         remoteAudioUrl: `https://cdn.islamic.network/quran/audio-surah/${String(ch.id || ch.chapter_number || ch.number).padStart(3,'0')}/ar.alafasy.mp3`,
-                    }));
+                        };
+                    });
                     console.log('Loaded sourates from api.quran.com');
                 } else {
                     throw new Error('Unexpected api.quran.com response shape');
@@ -286,17 +361,21 @@ const APP = {
                     const data = await response.json();
 
                     if (data && (data.code === 200 || data.status === 'OK') && Array.isArray(data.data)) {
-                        this.state.allSourates = data.data.map(surah => ({
+                        this.state.allSourates = data.data.map(surah => {
+                            const revelationRaw = surah.revelationType || surah.revelation_type || '';
+                            return {
                             number: surah.number,
                             name: surah.englishName || surah.name || '',
                             name_english: surah.englishName || surah.englishNameTranslation || surah.name || '',
                             name_arabic: surah.name || '',
                             verses_count: surah.numberOfAyahs || surah.ayahs || 0,
+                            revelation_place: revelationRaw ? revelationRaw.toLowerCase() : 'unknown',
                             audioUrl: `/audio/surah/${surah.number}`,
                             // Add direct alquran.cloud audio URL (works on GitHub Pages without CORS issues)
                             alquranCloudAudioUrl: `https://api.alquran.cloud/v1/surah/${surah.number}/${this.state.selectedRecitationEdition || 'ar.abdulbasitmurattal'}`,
                             remoteAudioUrl: `https://cdn.islamic.network/quran/audio-surah/${String(surah.number).padStart(3,'0')}/ar.alafasy.mp3`,
-                        }));
+                            };
+                        });
                         console.log('Loaded sourates from api.alquran.cloud');
                     } else {
                         throw new Error('Unexpected alquran.cloud response shape');
@@ -463,19 +542,148 @@ const APP = {
 
     // ========== DATA FILTERING & DISPLAY ==========
     filterAndDisplay() {
-        const query = this.state.searchQuery;
+        const query = (this.state.searchQuery || '').trim();
+        const { minRange, maxRange } = this.getNormalizedVerseRange();
 
-        this.state.displayedSourates = this.state.allSourates.filter(surah => {
-            const nameMatch = surah.name.toLowerCase().includes(query) ||
-                            surah.name_arabic.toLowerCase().includes(query) ||
-                            surah.number.toString().includes(query);
-            
-            return nameMatch;
+        const filtered = this.state.allSourates.filter(surah => {
+            const englishName = (surah.name_english || '').toLowerCase();
+            const arabicName = (surah.name_arabic || '').toLowerCase();
+            const latinName = (surah.name || '').toLowerCase();
+            const revelationPlace = (surah.revelation_place || '').toLowerCase();
+
+            const matchesQuery = !query || 
+                latinName.includes(query) ||
+                arabicName.includes(query) ||
+                englishName.includes(query) ||
+                revelationPlace.includes(query) ||
+                surah.number.toString().includes(query);
+
+            if (!matchesQuery) return false;
+
+            const verses = surah.verses_count || 0;
+            if (this.state.lengthFilter === 'short' && verses > 40) return false;
+            if (this.state.lengthFilter === 'medium' && (verses <= 40 || verses > 100)) return false;
+            if (this.state.lengthFilter === 'long' && verses <= 100) return false;
+
+            if (minRange !== null && verses < minRange) return false;
+            if (maxRange !== null && verses > maxRange) return false;
+
+            if (this.state.favoritesOnly) {
+                return this.state.favorites.some(fav => fav.number === surah.number);
+            }
+
+            return true;
         });
 
-
+        this.state.displayedSourates = this.sortSourates(filtered);
         this.state.currentPage = 1;
+        this.updateSearchSummary();
+        this.updateClearSearchVisibility();
         this.displaySourates();
+    },
+
+    getNormalizedVerseRange() {
+        const normalize = (value) => {
+            if (value === null || value === undefined || value === '') return null;
+            if (typeof value === 'number') return value;
+            const parsed = parseInt(value, 10);
+            return Number.isNaN(parsed) ? null : parsed;
+        };
+
+        let minRange = normalize(this.state.minVerses);
+        let maxRange = normalize(this.state.maxVerses);
+
+        if (minRange !== null && minRange < 1) minRange = 1;
+        if (maxRange !== null && maxRange < 1) maxRange = 1;
+
+        if (minRange !== null && maxRange !== null && minRange > maxRange) {
+            [minRange, maxRange] = [maxRange, minRange];
+        }
+
+        return { minRange, maxRange };
+    },
+
+    sortSourates(list) {
+        const sorted = [...list];
+        switch (this.state.sortMode) {
+            case 'name':
+                sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                break;
+            case 'versesAsc':
+                sorted.sort((a, b) => (a.verses_count || 0) - (b.verses_count || 0));
+                break;
+            case 'versesDesc':
+                sorted.sort((a, b) => (b.verses_count || 0) - (a.verses_count || 0));
+                break;
+            default:
+                sorted.sort((a, b) => a.number - b.number);
+        }
+        return sorted;
+    },
+
+    updateSearchSummary() {
+        if (!this.elements.searchSummary) return;
+        const total = this.state.displayedSourates.length;
+        const queryText = this.state.searchQueryRaw ? `matching "${this.state.searchQueryRaw}"` : 'available';
+        const filters = [];
+
+        const lengthLabels = {
+            short: 'Short < 40 ayat',
+            medium: 'Medium 40-100 ayat',
+            long: 'Long > 100 ayat',
+        };
+
+        if (this.state.lengthFilter !== 'all') {
+            filters.push(lengthLabels[this.state.lengthFilter]);
+        }
+
+        const { minRange, maxRange } = this.getNormalizedVerseRange();
+        if (minRange !== null || maxRange !== null) {
+            if (minRange !== null && maxRange !== null) {
+                filters.push(`Verses ${minRange}-${maxRange}`);
+            } else if (minRange !== null) {
+                filters.push(`≥ ${minRange} verses`);
+            } else if (maxRange !== null) {
+                filters.push(`≤ ${maxRange} verses`);
+            }
+        }
+
+        if (this.state.favoritesOnly) {
+            filters.push('Favorites only');
+        }
+
+        const filterText = filters.length ? ` • Filters: ${filters.join(', ')}` : '';
+        this.elements.searchSummary.textContent = `${total} surahs ${queryText}${filterText}`;
+    },
+
+    handleVerseRangeInput(bound, rawValue) {
+        const parsed = parseInt(rawValue, 10);
+        this.state[bound] = Number.isNaN(parsed) ? null : Math.max(1, parsed);
+        this.filterAndDisplay();
+    },
+
+    setLengthFilter(filterKey) {
+        if (this.state.lengthFilter === filterKey && filterKey !== 'all') {
+            this.state.lengthFilter = 'all';
+        } else {
+            this.state.lengthFilter = filterKey;
+        }
+        this.updateLengthFilterChips();
+        this.filterAndDisplay();
+    },
+
+    updateLengthFilterChips() {
+        if (!this.elements.lengthFilterChips.length) return;
+        this.elements.lengthFilterChips.forEach(chip => {
+            const key = chip.dataset.lengthFilter || 'all';
+            chip.classList.toggle('active', key === this.state.lengthFilter);
+        });
+    },
+
+    updateClearSearchVisibility() {
+        if (!this.elements.clearSearch) return;
+        const hasValue = Boolean(this.state.searchQueryRaw);
+        this.elements.clearSearch.classList.toggle('is-visible', hasValue);
     },
 
     displaySourates() {
@@ -488,13 +696,35 @@ const APP = {
     },
 
     renderSourates(sourates) {
+        const reciterLabel = this.getCurrentReciterName();
+        this.elements.souratesContainer.style.display = 'grid';
+
+        if (!sourates.length) {
+            this.elements.souratesContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <h3>No surahs match your filters</h3>
+                    <p>Try clearing the search bar or adjusting the filters above.</p>
+                </div>
+            `;
+            return;
+        }
+
         this.elements.souratesContainer.innerHTML = sourates.map(surah => {
             const isFavorite = this.state.favorites.some(fav => fav.number === surah.number);
+            const revelationSlug = (surah.revelation_place || 'unknown').toLowerCase();
+            const revelationClass = revelationSlug.replace(/\s+/g, '-');
+            const revelationLabel = revelationSlug === 'unknown'
+                ? 'Unknown'
+                : revelationSlug.charAt(0).toUpperCase() + revelationSlug.slice(1);
             
             return `
                 <div class="sourate-card">
                     <div class="sourate-header">
-                        <div class="sourate-number">${surah.number}</div>
+                        <div class="header-row">
+                            <span class="badge badge-number">Surah ${surah.number}</span>
+                            <span class="badge badge-revelation ${revelationClass}">${revelationLabel.toUpperCase()}</span>
+                        </div>
                         <h3>${surah.name}</h3>
                         <p class="sourate-arabic">${surah.name_arabic}</p>
                     </div>
@@ -502,21 +732,26 @@ const APP = {
                     <div class="sourate-body">
                         <div class="sourate-info">
                             <div class="info-item">
-                                <span class="reciter-name">
-                                    <i class="fas fa-microphone"></i>
-                                    Mishari Alafasy
-                                </span>
+                                <span class="info-label">English Name</span>
+                                <span class="info-value">${surah.name_english || surah.name}</span>
                             </div>
                             <div class="info-item">
-                                <span class="verses-info">
-                                    <i class="fas fa-list"></i>
-                                    ${surah.verses_count} Verses
-                                </span>
+                                <span class="info-label">Reciter</span>
+                                <span class="info-value">${reciterLabel}</span>
                             </div>
+                            <div class="info-item">
+                                <span class="info-label">Verses</span>
+                                <span class="info-value">${surah.verses_count}</span>
+                            </div>
+                        </div>
+
+                        <div class="card-tags">
+                            <span class="card-tag"><i class="fas fa-list"></i>${surah.verses_count} verses</span>
+                            <span class="card-tag"><i class="fas fa-place-of-worship"></i>${revelationLabel}</span>
                         </div>
                         
                         <div class="sourate-actions">
-                            <button class="btn-play" data-surah-number="${surah.number}">
+                            <button class="btn-play" data-surah-number="${surah.number}" title="Play ${surah.name}">
                                 <i class="fas fa-play"></i> Play
                             </button>
                             <button class="btn-favorite ${isFavorite ? 'active' : ''}" 
@@ -529,8 +764,6 @@ const APP = {
                 </div>
             `;
         }).join('');
-
-        this.elements.souratesContainer.style.display = 'grid';
 
         // Attach event listeners to buttons
         this.elements.souratesContainer.querySelectorAll('.btn-play').forEach(btn => {
@@ -577,7 +810,7 @@ const APP = {
         
         // Update modal content
         this.elements.modalTitle.textContent = surah.name;
-        this.elements.modalReciter.textContent = '🎤 Mishari Al-Afasy';
+        this.elements.modalReciter.textContent = `🎤 ${this.getCurrentReciterName()}`;
         this.elements.infoNumber.textContent = surah.number;
         this.elements.infoArabicName.textContent = surah.name_arabic;
         this.elements.infoEnglishName.textContent = surah.name_english || surah.name;
@@ -981,6 +1214,10 @@ const APP = {
         this.updateFavoriteCount();
         
         // Refresh the display to update heart icons
+        if (this.state.favoritesOnly) {
+            this.filterAndDisplay();
+            return;
+        }
         const currentStart = (this.state.currentPage - 1) * this.config.itemsPerPage;
         const currentEnd = currentStart + this.config.itemsPerPage;
         const displayedSourates = this.state.displayedSourates.slice(currentStart, currentEnd);
@@ -1076,9 +1313,23 @@ const APP = {
     // ========== UTILITY FUNCTIONS ==========
     resetFilters() {
         this.elements.searchInput.value = '';
-        this.elements.reciterSelect.value = '';
         this.state.searchQuery = '';
+        this.state.searchQueryRaw = '';
         this.state.selectedReciter = 1;
+        this.state.lengthFilter = 'all';
+        this.state.minVerses = null;
+        this.state.maxVerses = null;
+        this.state.favoritesOnly = false;
+        this.state.sortMode = 'number';
+        if (this.elements.minVerses) this.elements.minVerses.value = '';
+        if (this.elements.maxVerses) this.elements.maxVerses.value = '';
+        if (this.elements.favoritesOnlyToggle) this.elements.favoritesOnlyToggle.checked = false;
+        if (this.elements.sortSelect) this.elements.sortSelect.value = 'number';
+        if (this.elements.reciterSelect) {
+            this.elements.reciterSelect.value = this.state.selectedRecitationEdition || '';
+        }
+        this.updateLengthFilterChips();
+        this.updateClearSearchVisibility();
         this.state.currentPage = 1;
         this.filterAndDisplay();
     },
