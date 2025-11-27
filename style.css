@@ -209,6 +209,21 @@ body {
     box-shadow: var(--shadow);
 }
 
+.btn-success {
+    background: var(--gradient-accent);
+    color: white;
+    box-shadow: var(--shadow);
+}
+
+.btn-success:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-success:active {
+    transform: translateY(-1px);
+}
+
 .btn-primary:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-lg);
@@ -694,56 +709,107 @@ body {
     margin-top: 8px;
 }
 
-/* ========== AUDIO PLAYER ========== */
-.audio-player {
-    background: linear-gradient(135deg, rgba(30, 126, 52, 0.05), rgba(38, 163, 70, 0.05));
+/* ========== PLAYER PANEL ========== */
+.quick-play-actions {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+}
+
+.btn-quick {
+    flex: 1;
+    justify-content: center;
+    font-size: 1.05rem;
+    padding: 16px 22px;
+}
+
+.player-panel {
+    background: white;
+    border-radius: 18px;
     padding: 25px;
-    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-shadow: var(--shadow);
     margin-bottom: 30px;
-    border: 2px solid rgba(30, 126, 52, 0.2);
+}
+
+.player-card {
+    background: linear-gradient(135deg, rgba(30, 126, 52, 0.07), rgba(38, 163, 70, 0.15));
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 22px;
+    border: 1px solid rgba(30, 126, 52, 0.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.player-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    color: var(--primary-color);
+}
+
+.player-card-head i {
+    font-size: 1.4rem;
+    opacity: 0.7;
+}
+
+.eyebrow-text {
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.player-subtext {
+    color: rgba(26, 26, 26, 0.75);
+    font-size: 0.95rem;
+    margin: 0;
 }
 
 audio {
     width: 100%;
     outline: none;
     accent-color: var(--primary-color);
-    height: 40px;
+    height: 44px;
+    background: transparent;
+    border-radius: 10px;
 }
 
 audio::-webkit-media-controls-panel {
     background-color: transparent;
 }
 
-/* ========== PLAYER INFO ========== */
 .player-info {
-    background: linear-gradient(135deg, #f5f5f5, #f0f0f0);
-    padding: 25px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px;
+}
+
+.info-card {
+    background: #fdfdfd;
     border-radius: 14px;
-    margin-bottom: 30px;
-    border-left: 5px solid var(--primary-color);
+    padding: 18px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-.info-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 14px 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.info-row:last-child {
-    border-bottom: none;
-}
-
-.info-row .info-label {
+.player-info .info-label {
+    display: block;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-light);
+    margin-bottom: 6px;
     font-weight: 700;
-    color: var(--text-dark);
-    font-size: 0.9rem;
 }
 
-.info-row .info-value {
+.player-info .info-value {
+    font-size: 1.2rem;
+    font-weight: 700;
     color: var(--primary-color);
-    font-weight: 600;
-    text-align: right;
 }
 
 /* ========== MODAL ACTIONS ========== */
@@ -756,6 +822,36 @@ audio::-webkit-media-controls-panel {
 #prevSurah,
 #nextSurah {
     flex: 1;
+}
+
+/* ========== VERSES SECTION ========== */
+.verses-section {
+    margin-top: 18px;
+}
+
+.verse-navigation {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.verse-navigation-hint {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.verses-container {
+    max-height: 320px;
+    overflow: auto;
+    padding: 10px;
+    background: white;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow);
 }
 
 /* ========== FLOATING BUTTON ========== */
@@ -938,6 +1034,14 @@ audio::-webkit-media-controls-panel {
         padding: 20px;
     }
 
+    .quick-play-actions {
+        flex-direction: column;
+    }
+
+    .btn-quick {
+        width: 100%;
+    }
+
     .modal-content {
         max-width: 95%;
         padding: 25px;
@@ -1061,6 +1165,18 @@ audio::-webkit-media-controls-panel {
 
     .favorite-actions button {
         flex: 1;
+    }
+
+    .player-info {
+        grid-template-columns: 1fr;
+    }
+
+    .verse-navigation {
+        flex-direction: column;
+    }
+
+    .verse-navigation-hint {
+        text-align: center;
     }
 }
 
